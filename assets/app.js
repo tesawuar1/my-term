@@ -179,7 +179,21 @@
     // text before capture — html2canvas renders native form controls
     // inconsistently across browsers, so this guarantees the guest's
     // answers always show up in the exported PDF.
-    var SNAPSHOT_FIELD_IDS = ["resName", "resEmail", "resId", "resBoat", "resDate", "resRoom", "resDestination"];
+    var PRINT_FIELDS = [
+      { id: "resName", label: "Name" },
+      { id: "resEmail", label: "Email" },
+      { id: "resId", label: "NIK / Passport Number" },
+      { id: "resBoat", label: "Name of Boat" },
+      { id: "resDate", label: "Date of Travel" },
+      { id: "resRoom", label: "Room Type" },
+      { id: "resDestination", label: "Destination" },
+    ];
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
 
     function fieldDisplayValue(el) {
       if (el.tagName === "SELECT") {
@@ -194,23 +208,29 @@
       return el.value;
     }
 
-    function bakeFormForCapture() {
-      var restoreOps = [];
+    function buildPrintReservation() {
+      var container = document.getElementById("printReservation");
+      if (!container) return function () {};
 
-      SNAPSHOT_FIELD_IDS.forEach(function (id) {
-        var el = document.getElementById(id);
-        if (!el) return;
-        var span = document.createElement("div");
-        span.className = "value-snapshot";
-        span.textContent = fieldDisplayValue(el) || " ";
-        el.insertAdjacentElement("afterend", span);
-        var prevDisplay = el.style.display;
-        el.style.display = "none";
-        restoreOps.push(function () {
-          span.remove();
-          el.style.display = prevDisplay;
-        });
-      });
+      container.innerHTML = PRINT_FIELDS.map(function (f) {
+        var el = document.getElementById(f.id);
+        var value = el ? fieldDisplayValue(el) : "";
+        return (
+          '<div class="print-row">' +
+          '<span class="print-label">' + escapeHtml(f.label) + "</span>" +
+          '<span class="print-colon">:</span>' +
+          '<span class="print-value">' + (escapeHtml(value) || "&nbsp;") + "</span>" +
+          "</div>"
+        );
+      }).join("");
+
+      return function restore() {
+        container.innerHTML = "";
+      };
+    }
+
+    function bakeFormForCapture() {
+      var restoreOps = [buildPrintReservation()];
 
       if (sigName) {
         var nameSpan = document.createElement("div");
@@ -270,7 +290,7 @@
           0, 0, sourceCanvas.width, sliceHeightPx
         );
 
-        var sliceImgData = pageCanvas.toDataURL("image/jpeg", 0.75);
+        var sliceImgData = pageCanvas.toDataURL("image/jpeg", 0.92);
         var sliceHeightMm = sliceHeightPx / pxPerMm;
         if (!first) pdf.addPage();
         pdf.addImage(sliceImgData, "JPEG", 0, 0, pageWidthMm, sliceHeightMm);
@@ -304,10 +324,23 @@
 
       var restoreForm = bakeFormForCapture();
 
-      // A moderate scale keeps the text crisp without ballooning the
-      // resulting PDF's file size on a long, multi-section document.
+      // Force the capture to lay out at a fixed desktop width — regardless
+      // of the guest's actual screen size — so a phone always produces the
+      // same polished, wide layout as a desktop browser would (not the
+      // narrow, stacked mobile view). html2canvas renders its internal
+      // clone inside its own iframe sized to windowWidth/windowHeight, so
+      // this is what our CSS media queries evaluate against.
+      var DESKTOP_CAPTURE_WIDTH = 900;
+      var captureHeight = Math.max(target.scrollHeight, 1200);
+
       window
-        .html2canvas(target, { scale: 1, useCORS: true, backgroundColor: "#ffffff" })
+        .html2canvas(target, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: "#ffffff",
+          windowWidth: DESKTOP_CAPTURE_WIDTH,
+          windowHeight: captureHeight,
+        })
         .then(function (canvasImg) {
           var pdf = new window.jspdf.jsPDF("p", "mm", "a4");
           addCanvasAsPages(pdf, canvasImg);

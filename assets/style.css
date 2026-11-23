@@ -320,3 +320,33 @@ footer.site-footer{
 body.pdf-rendering .no-print{display:none !important;}
 body.pdf-rendering .section,
 body.pdf-rendering .card{box-shadow:none;}
+
+/* Final "printed result" view of the reservation form: plain label/value
+   lines (no input-box chrome), built live from the filled-in values right
+   before capture — matches the look of a completed paper form. Hidden by
+   default; only shown during PDF export. */
+.print-reservation{display:none;}
+body.pdf-rendering .formgrid{display:none !important;}
+body.pdf-rendering .print-reservation{
+  display:block;margin-top:4px;
+}
+.print-reservation .print-row{
+  display:flex;align-items:baseline;gap:10px;padding:6px 0;
+  font-family:var(--serif);font-style:italic;font-size:1.02rem;color:var(--ink);
+  border-bottom:1px dotted var(--line);
+}
+.print-reservation .print-row:last-child{border-bottom:none;}
+.print-reservation .print-label{width:210px;flex:none;font-weight:700;}
+.print-reservation .print-colon{width:10px;flex:none;}
+.print-reservation .print-value{flex:1;font-style:normal;}
+
+/* Final "signed" look for the signature boxes: strip the web-form box
+   chrome (dashed border, background, underline) during capture so only
+   the drawn signature and printed name remain, like a finished document. */
+body.pdf-rendering .sig-canvas-wrap{border:none;background:transparent;}
+body.pdf-rendering .sig-static{border:none;background:transparent;}
+body.pdf-rendering .sig-line{border-top:none;padding-top:0;margin-top:2px;}
+body.pdf-rendering .sig-name-snapshot,
+body.pdf-rendering .sig-block > .sig-line span{
+  font-family:var(--serif);font-style:italic;
+}
